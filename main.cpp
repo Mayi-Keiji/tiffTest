@@ -2,8 +2,15 @@
 #include <iostream>
 #include "./libtiff/tiff.h"
 #include "./libtiff/tiffio.h"
-
+#include <string>
+#include <vector>
+#include <opencv2/opencv.hpp>
+#include "CTileTiff.h"
 using namespace std;
+
+using namespace cv;
+
+
 
 
 /*
@@ -296,10 +303,163 @@ void testReadGrayTiff()
 	TIFFClose(image);
 }
 
+void testVersion()
+{
+	std::cout << TIFFGetVersion() << endl;
+}
+
+int countDirectries(string fileName)
+{
+	
+	TIFF* tif = TIFFOpen(fileName.c_str(), "r");
+	int dircount = 0;
+	if (tif) 
+	{
+		do 
+		{
+			dircount++;
+			
+		} while (TIFFReadDirectory(tif));
+		printf("%d directories in %s\n", dircount, fileName.c_str());
+		TIFFClose(tif);
+	}
+	return dircount;
+
+}
+
+
+
+
+
+
+void testSaveImages()
+{
+	std::vector<std::string> fileNames;
+	fileNames.push_back("D:\\Scan-Compare\\1.jpg");
+	fileNames.push_back("D:\\Scan-Compare\\2.jpg");
+	fileNames.push_back("D:\\Scan-Compare\\3.jpg");
+	fileNames.push_back("D:\\Scan-Compare\\4.jpg");
+	fileNames.push_back("D:\\Scan-Compare\\5.jpg");
+	fileNames.push_back("D:\\Scan-Compare\\6.jpg");
+	std::vector<cv::Mat> mats;
+	CTileTiff tiff("1.tiff");
+	
+	for (int i = 0; i < fileNames.size(); i++)
+	{
+		cv::Mat img = cv::imread(fileNames[i]);
+		cv::Mat dst;
+		resize(img, dst, Size(img.cols / 256 * 256, img.rows / 256 * 256), 0.0, 0.0);
+		//cv::imshow("dst", dst);
+		mats.push_back(dst);
+	}
+	int nWidth = mats[0].cols;
+	int nHeight = mats[0].rows;
+	tiff.SetTileInfo(256, 256, 1, nHeight, nWidth);
+	tiff.SaveImage(mats[0], 0, 0, nWidth, nHeight);
+	//tiff.SaveImage(mats[1], nWidth, 0, nWidth * 2, nWidth * 2);
+	//tiff.SaveImage(mats[2], nWidth*2, 0, nWidth * 3, nWidth * 3);
+
+
+	cv::waitKey(0);
+
+}
+
+
+
+bool Decode(const uchar* pucJpeg, const uint unLength,
+	uchar* pucData, const int nWidth, const int nHeight, const int nPitch)
+{
+	const int nChannels = nPitch / max(1, nWidth);
+	if (NULL == pucJpeg || NULL == pucData || 0 >= unLength
+		|| (1 != nChannels && 3 != nChannels))
+	{
+		return false;
+	}
+
+	Mat dst(nHeight, nWidth, CV_8UC(nChannels), pucData, nPitch);
+	Mat buf(1, unLength, CV_8UC1, (void*)pucJpeg, unLength);
+	/*ofstream fout;
+	fout.open("dd.jpg", ios::binary);
+	fout.write((char*)pucJpeg, unLength);*/
+
+	
+	imdecode(buf, CV_LOAD_IMAGE_UNCHANGED, &dst);
+	cv::imwrite("33.jpg", dst);
+
+
+	return true;
+}
+
+void testDecode()
+{
+	cv::Mat img = imread("d:/dd.jpg");
+	ifstream fin;
+	fin.open("d:/dd.jpg", ios::binary);
+	uchar* pucJpeg = new uchar[150422];
+	fin.read((char*)pucJpeg, 150422);
+	uchar* pucData = new uchar[965 * 2840];
+	Decode(pucJpeg, 150422, pucData, 946, 965, 2840);
+}
+
+
+
+#include "openslide.h"
+int test_Openslide()
+{
+	std::cout << "enter openslide" << std::endl;
+	string fileName = "D:/20165478-1-20191220090726-001.tiff";
+	openslide_t* slide = openslide_open(fileName.c_str());
+
+	int32_t 	level = openslide_get_level_count(slide);
+	std::cout << level << std::endl;
+	int64_t w, h;
+
+	openslide_get_level0_dimensions(slide, &w, &h);
+	std::cout << w << "," << h << std::endl;
+
+	for (int i = 0; i < level; i++)
+	{
+		openslide_get_level_dimensions(slide, i, &w, &h);
+		std::cout << "level " << i << " dimension:" << w << "," << h << std::endl;
+	}
+
+
+	for (int i = 0; i < level; i++)
+	{
+
+		std::cout << "level " << i << " donwnsmaple:" << openslide_get_level_downsample(slide, i) << std::endl;
+	}
+
+
+	std::cout << "best level for downsmaple:" << openslide_get_best_level_for_downsample(slide, (openslide_get_level_downsample(slide, 0))) << std::endl;
+
+	int nWidth = 1024;
+	int nHeight = 1024;
+
+	uint32_t *pucData = new uint32_t[nWidth * nHeight * 3];
+
+	openslide_read_region(slide, pucData, 1000, 1000, 0, nWidth, nHeight);
+
+	cv::Mat img(nHeight, nWidth, CV_8UC(3), (void *)pucData, nWidth*3);
+	cv::imshow("img", img);
+	cv::waitKey(0);
+
+	delete[]pucData;
+
+	return 1;
+
+}
+
 
 int main()
 {
 	//testWriteTiff();
-	testReadGrayTiff();
-	cout << "test ok" << endl;
+	//testReadGrayTiff();
+	//testVersion();
+	//cout << "test ok" << endl;
+	string fileName = "D:/20165478-1-20191220090726-001.tiff";
+	countDirectries(fileName);
+	test_Openslide();
+	//testSaveImages();
+	//testDecode();
 }
