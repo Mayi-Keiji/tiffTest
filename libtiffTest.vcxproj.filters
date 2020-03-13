@@ -21,9 +21,21 @@
     <ClCompile Include="CTileTiff.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="resizeCPU.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="converter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CTileTiff.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="resizeCPU.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="converter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

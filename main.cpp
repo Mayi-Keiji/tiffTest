@@ -312,11 +312,16 @@ int countDirectries(string fileName)
 {
 	
 	TIFF* tif = TIFFOpen(fileName.c_str(), "r");
+	int nTotalFrame = TIFFNumberOfDirectories(tif);
+	std::cout << "TotalFrame:" << nTotalFrame << std::endl;
 	int dircount = 0;
 	if (tif) 
 	{
 		do 
 		{
+			char* str;
+			TIFFGetField(tif, TIFFTAG_PAGENAME,&str);
+			std::cout << str << std::endl;
 			dircount++;
 			
 		} while (TIFFReadDirectory(tif));
@@ -330,39 +335,6 @@ int countDirectries(string fileName)
 
 
 
-
-
-void testSaveImages()
-{
-	std::vector<std::string> fileNames;
-	fileNames.push_back("D:\\Scan-Compare\\1.jpg");
-	fileNames.push_back("D:\\Scan-Compare\\2.jpg");
-	fileNames.push_back("D:\\Scan-Compare\\3.jpg");
-	fileNames.push_back("D:\\Scan-Compare\\4.jpg");
-	fileNames.push_back("D:\\Scan-Compare\\5.jpg");
-	fileNames.push_back("D:\\Scan-Compare\\6.jpg");
-	std::vector<cv::Mat> mats;
-	CTileTiff tiff("1.tiff");
-	
-	for (int i = 0; i < fileNames.size(); i++)
-	{
-		cv::Mat img = cv::imread(fileNames[i]);
-		cv::Mat dst;
-		resize(img, dst, Size(img.cols / 256 * 256, img.rows / 256 * 256), 0.0, 0.0);
-		//cv::imshow("dst", dst);
-		mats.push_back(dst);
-	}
-	int nWidth = mats[0].cols;
-	int nHeight = mats[0].rows;
-	tiff.SetTileInfo(256, 256, 1, nHeight, nWidth);
-	tiff.SaveImage(mats[0], 0, 0, nWidth, nHeight);
-	//tiff.SaveImage(mats[1], nWidth, 0, nWidth * 2, nWidth * 2);
-	//tiff.SaveImage(mats[2], nWidth*2, 0, nWidth * 3, nWidth * 3);
-
-
-	cv::waitKey(0);
-
-}
 
 
 
@@ -431,6 +403,13 @@ int test_Openslide()
 	}
 
 
+	std::cout << openslide_get_associated_image_names(slide) << std::endl;
+
+
+	int64_t h1, w1;
+	openslide_get_associated_image_dimensions(slide, "Layer0", &w1, &h1);
+	std::cout << "w:" << w1 << ",h:" << h1 << std::endl;
+
 	std::cout << "best level for downsmaple:" << openslide_get_best_level_for_downsample(slide, (openslide_get_level_downsample(slide, 0))) << std::endl;
 
 	int nWidth = 1024;
@@ -449,6 +428,164 @@ int test_Openslide()
 	return 1;
 
 }
+#include "resizeCPU.h"
+#include "converter.h"
+void testResize()
+{
+	cv::Mat image;
+	cv::Mat image_resized_cpu;
+
+	int32_t* argb = NULL;
+	int32_t* argb_res_cpu = NULL;
+
+	clock_t cpu_startTime, cpu_endTime;
+	double cpu_ElapseTime = 0;
+	
+
+	//int32_t *argb_pinned = NULL;
+	//int32_t *argb_res_gpu_pinned = NULL;
+
+	
+
+	const char fname[] = "D:\\134.jpg";
+	image = cv::imread(fname, 1);
+	//image = cv::imread(argv[1], 1);
+	if (image.empty())
+	{
+		printf("Can't load image %s\n", fname);
+	}
+
+	cv::Size newSz(image.cols / 2, image.rows / 2); //1920x1080
+
+	argb = cvtMat2Int32(image);
+	 
+	int RESIZE_CALLS_NUM = 1000;
+
+	cpu_startTime = clock();
+	for (int i = 0; i < RESIZE_CALLS_NUM; i++)
+	{
+		delete[] argb_res_cpu;
+		argb_res_cpu = resizeBilinear_cpu(argb, image.cols, image.rows, newSz.width, newSz.height);
+	}
+	cpu_endTime = clock();
+	cpu_ElapseTime = ((double)(cpu_endTime - cpu_startTime) / (double)CLOCKS_PER_SEC);
+	printf("Time CPU: %f\n", cpu_ElapseTime);
+
+
+}
+
+
+bool Resize(const uchar* pucImgIn, uchar* pucImgOut,
+	const int nWidth, const int nHeight, const int nChannels, const int nPitch,
+	const int nWidthDst, const int nHeightDst, const int nChannelsDst, const int nPitchDst)
+{
+	if (NULL == pucImgIn || NULL == pucImgOut
+		|| (1 != nChannels && 3 != nChannels && 4 != nChannels)
+		|| (1 != nChannelsDst && 3 != nChannelsDst && 4 != nChannelsDst)
+		|| nChannels != nChannelsDst
+		|| 0 == nWidth * nHeight
+		|| 0 == nWidthDst * nHeightDst)
+	{
+		return false;
+	}
+
+	Mat src(nHeight, nWidth, CV_8UC(nChannels), (void*)pucImgIn, nPitch);
+	Mat dst(nHeightDst, nWidthDst, CV_8UC(nChannelsDst), (void*)pucImgOut, nPitchDst);
+	resize(src, dst, Size(nWidthDst, nHeightDst), 0.0, 0.0);
+
+	return true;
+}
+
+void testCVResize()
+{
+	cv::Mat image;
+	cv::Mat image_resized_cpu;
+
+	int32_t* argb = NULL;
+	int32_t* argb_res_cpu = NULL;
+
+	clock_t cpu_startTime, cpu_endTime;
+	double cpu_ElapseTime = 0;
+
+
+	//int32_t *argb_pinned = NULL;
+	//int32_t *argb_res_gpu_pinned = NULL;
+
+
+
+	const char fname[] = "D:\\134.jpg";
+	image = cv::imread(fname, 1);
+	//image = cv::imread(argv[1], 1);
+	if (image.empty())
+	{
+		printf("Can't load image %s\n", fname);
+	}
+
+	cv::Size newSz(image.cols / 2, image.rows / 2); //1920x1080
+
+	
+	int RESIZE_CALLS_NUM = 1000;
+
+	cpu_startTime = clock();
+	uchar* pucFinal = new uchar[image.cols / 2 * image.rows / 2 * 3];
+	for (int i = 0; i < RESIZE_CALLS_NUM; i++)
+	{
+		Resize(image.data, pucFinal, image.cols, image.rows, 3,image.cols*3,
+			image.cols / 2, image.rows / 2, 3,image.cols/2 * 3);
+	}
+	cpu_endTime = clock();
+	cpu_ElapseTime = ((double)(cpu_endTime - cpu_startTime) / (double)CLOCKS_PER_SEC);
+	printf("Time OpenCV: %f\n", cpu_ElapseTime);
+
+
+}
+
+
+
+
+void testSaveImages()
+{
+	std::vector<std::string> fileNames;
+	fileNames.push_back("./Scan-Compare/1.jpg");
+	fileNames.push_back("./Scan-Compare/2.jpg");
+	fileNames.push_back("./Scan-Compare/3.jpg");
+	fileNames.push_back("./Scan-Compare/4.jpg");
+	fileNames.push_back("./Scan-Compare/5.jpg");
+	fileNames.push_back("./Scan-Compare/6.jpg");
+	std::vector<cv::Mat> mats;
+	CTileTiff tiff("D:/1.tiff");
+
+	for (int i = 0; i < fileNames.size(); i++)
+	{
+		cv::Mat img = cv::imread(fileNames[i]);
+		cv::Mat dst;
+		resize(img, dst, Size(4096, 4096), 0.0, 0.0);
+		//cv::imshow("dst", dst);
+		cv::cvtColor(dst, dst, CV_BGR2RGB);
+		mats.push_back(dst);
+	}
+	int nWidth = mats[0].cols;
+	int nHeight = mats[0].rows;
+	tiff.SetTileInfo(256, 256, 1, nHeight*2, nWidth*3);
+	
+	//第一行. 这样是为了demo 看起来容易理解，真正开发的时候你至少得用循环吧。。。
+	tiff.SaveImage(mats[0], 0, 0, nWidth, nHeight);
+	tiff.SaveImage(mats[1], nWidth, 0, nWidth * 2, nHeight);
+	tiff.SaveImage(mats[2], nWidth*2, 0, nWidth * 3, nHeight);
+	//第二行
+	tiff.SaveImage(mats[3], 0, nHeight, nWidth, nHeight*2);
+	tiff.SaveImage(mats[4], nWidth, nHeight, nWidth * 2, nHeight * 2);
+	tiff.SaveImage(mats[5], nWidth * 2, nHeight, nWidth * 3, nHeight * 3);
+
+	
+
+	//cv::imshow("ss", mats[0]);
+
+	cv::waitKey(0);
+
+}
+
+
 
 
 int main()
@@ -458,8 +595,12 @@ int main()
 	//testVersion();
 	//cout << "test ok" << endl;
 	string fileName = "D:/20165478-1-20191220090726-001.tiff";
-	countDirectries(fileName);
-	test_Openslide();
-	//testSaveImages();
+	//countDirectries(fileName);
+	//test_Openslide();
+	testSaveImages();
 	//testDecode();
+
+	//testResize();
+
+	//testCVResize();
 }

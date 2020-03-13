@@ -125,11 +125,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="converter.cpp" />
     <ClCompile Include="CTileTiff.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="resizeCPU.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="converter.h" />
     <ClInclude Include="CTileTiff.h" />
+    <ClInclude Include="resizeCPU.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
